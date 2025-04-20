@@ -66,7 +66,7 @@ lecture-management-system/
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/AhmadTchnology/lecture-management-system.git
+   git clone [https://github.com/AhmadTchnology/attendance-system-web.git]
    cd lecture-management-system
    ```
 
