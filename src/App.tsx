@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LogIn, LogOut, Upload, FileText, Users, User, Info, Menu, X, Search, Filter, Lock, Plus, Trash, UserPlus } from 'lucide-react';
+import { LogIn, LogOut, Upload, FileText, Users, User, Info, Menu, X, Search, Filter, Lock, Plus, Trash, UserPlus, Clock, CheckSquare, Tag } from 'lucide-react';
 import './App.css';
 
 // Component imports
 import StudentDataManagement from './components/StudentDataManagement';
+import AttendanceManagement from './components/AttendanceManagement';
+import NFCTagManagement from './components/NFCTagManagement';
+import StudentAttendance from './components/StudentAttendance';
 
 // Firebase imports
 import { 
@@ -1015,6 +1018,36 @@ function App() {
               </button>
             </li>
             
+            {/* Attendance recording for teachers */}
+            {currentUser?.role === 'teacher' && (
+              <li>
+                <button
+                  className={activeView === 'attendance' ? 'active' : ''}
+                  onClick={() => {
+                    setActiveView('attendance');
+                    setIsSidebarOpen(false);
+                  }}
+                >
+                  <CheckSquare size={20} /> Record Attendance
+                </button>
+              </li>
+            )}
+            
+            {/* Student attendance view */}
+            {currentUser?.role === 'student' && (
+              <li>
+                <button
+                  className={activeView === 'myAttendance' ? 'active' : ''}
+                  onClick={() => {
+                    setActiveView('myAttendance');
+                    setIsSidebarOpen(false);
+                  }}
+                >
+                  <Clock size={20} /> My Attendance
+                </button>
+              </li>
+            )}
+            
             {currentUser?.role === 'admin' && (
               <>
                 <li>
@@ -1037,6 +1070,28 @@ function App() {
                     }}
                   >
                     <UserPlus size={20} /> Manage Students
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className={activeView === 'nfcTags' ? 'active' : ''}
+                    onClick={() => {
+                      setActiveView('nfcTags');
+                      setIsSidebarOpen(false);
+                    }}
+                  >
+                    <Tag size={20} /> NFC Tag Management
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className={activeView === 'adminAttendance' ? 'active' : ''}
+                    onClick={() => {
+                      setActiveView('adminAttendance');
+                      setIsSidebarOpen(false);
+                    }}
+                  >
+                    <CheckSquare size={20} /> Attendance Management
                   </button>
                 </li>
               </>
@@ -1093,6 +1148,10 @@ function App() {
             {activeView === 'lectures' && renderLecturesList()}
             {activeView === 'about' && renderAboutUs()}
             {activeView === 'students' && currentUser && <StudentDataManagement currentUser={currentUser} />}
+            {activeView === 'attendance' && currentUser && currentUser.role === 'teacher' && <AttendanceManagement currentUser={currentUser} />}
+            {activeView === 'myAttendance' && currentUser && currentUser.role === 'student' && <StudentAttendance currentUser={currentUser} />}
+            {activeView === 'nfcTags' && currentUser && currentUser.role === 'admin' && <NFCTagManagement currentUser={currentUser} />}
+            {activeView === 'adminAttendance' && currentUser && currentUser.role === 'admin' && <AttendanceManagement currentUser={currentUser} />}
           </main>
         </div>
       )}
