@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LogIn, LogOut, Upload, FileText, Users, User, Info, Menu, X, Search, Filter, Lock, Plus, Trash } from 'lucide-react';
+import { LogIn, LogOut, Upload, FileText, Users, User, Info, Menu, X, Search, Filter, Lock, Plus, Trash, UserPlus } from 'lucide-react';
 import './App.css';
+
+// Component imports
+import StudentDataManagement from './components/StudentDataManagement';
 
 // Firebase imports
 import { 
@@ -76,6 +79,7 @@ function App() {
   const [activeView, setActiveView] = useState<string>('login');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showStudentManagement, setShowStudentManagement] = useState<boolean>(false);
   
   // Form states
   const [loginEmail, setLoginEmail] = useState<string>('');
@@ -1012,17 +1016,30 @@ function App() {
             </li>
             
             {currentUser?.role === 'admin' && (
-              <li>
-                <button
-                  className={activeView === 'users' ? 'active' : ''}
-                  onClick={() => {
-                    setActiveView('users');
-                    setIsSidebarOpen(false);
-                  }}
-                >
-                  <Users size={20} /> Users
-                </button>
-              </li>
+              <>
+                <li>
+                  <button
+                    className={activeView === 'users' ? 'active' : ''}
+                    onClick={() => {
+                      setActiveView('users');
+                      setIsSidebarOpen(false);
+                    }}
+                  >
+                    <Users size={20} /> Users
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className={activeView === 'students' ? 'active' : ''}
+                    onClick={() => {
+                      setActiveView('students');
+                      setIsSidebarOpen(false);
+                    }}
+                  >
+                    <UserPlus size={20} /> Manage Students
+                  </button>
+                </li>
+              </>
             )}
             
             <li>
@@ -1075,6 +1092,7 @@ function App() {
             {activeView === 'users' && renderUserManagement()}
             {activeView === 'lectures' && renderLecturesList()}
             {activeView === 'about' && renderAboutUs()}
+            {activeView === 'students' && currentUser && <StudentDataManagement currentUser={currentUser} />}
           </main>
         </div>
       )}

@@ -1,0 +1,15 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Handle SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Environment variables can be added here or in the Netlify dashboard
+[build.environment]
+  # Add your environment variables here if needed
+  # VITE_FIREBASE_API_KEY = "your-api-key"
+  # Note: For security, it's better to set sensitive values in Netlify's dashboard
