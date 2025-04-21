@@ -156,30 +156,30 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ currentUser
 
   // Create a new attendance session
   const createAttendanceSession = async () => {
-    if (!selectedLecture || !currentUser) {
-      setMessage('Please select a lecture');
+    if (!currentUser) {
+      setMessage('User information not available');
       return;
     }
     
     setIsLoading(true);
     try {
-      // Check if there's already an active session for this lecture
+      // Check if there's already an active session for this teacher
       const existingSessionQuery = query(
         collection(db, 'attendanceSessions'),
-        where('lectureId', '==', selectedLecture),
+        where('teacherId', '==', currentUser.id),
         where('isActive', '==', true)
       );
       
       const existingSessionSnapshot = await getDocs(existingSessionQuery);
       
       if (!existingSessionSnapshot.empty) {
-        setMessage('An active session already exists for this lecture');
+        setMessage('You already have an active attendance session');
         return;
       }
       
-      // Create new session
+      // Create new session without requiring lecture selection
       const newSession: Omit<AttendanceSession, 'id'> = {
-        lectureId: selectedLecture,
+        lectureId: selectedLecture || 'direct-attendance-session', // Use default if no lecture selected
         teacherId: currentUser.id,
         startTime: serverTimestamp(),
         isActive: true,
@@ -319,14 +319,14 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ currentUser
       <h3>Create Attendance Session</h3>
       
       <div className="form-group">
-        <label htmlFor="lecture-select">Select Lecture</label>
+        <label htmlFor="lecture-select">Select Lecture (Optional)</label>
         <select
           id="lecture-select"
           className="input-field"
           value={selectedLecture}
           onChange={(e) => setSelectedLecture(e.target.value)}
         >
-          <option value="">-- Select a lecture --</option>
+          <option value="">-- No lecture selected --</option>
           {lectures.map(lecture => (
             <option key={lecture.id} value={lecture.id}>
               {lecture.title} ({lecture.subject}, {lecture.stage})
@@ -338,7 +338,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ currentUser
       <button
         className="btn-primary"
         onClick={createAttendanceSession}
-        disabled={isLoading || !selectedLecture}
+        disabled={isLoading}
       >
         {isLoading ? (
           <span className="loading-spinner"></span>
@@ -551,14 +551,14 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ currentUser
         <div className="card">
           <h3 className="card-title">Create New Attendance Session</h3>
           <div className="form-group">
-            <label htmlFor="lectureSelect">Select Lecture</label>
+            <label htmlFor="lectureSelect">Select Lecture (Optional)</label>
             <select
               id="lectureSelect"
               value={selectedLecture}
               onChange={(e) => setSelectedLecture(e.target.value)}
               className="input-field"
             >
-              <option value="">-- Select a lecture --</option>
+              <option value="">-- No lecture selected --</option>
               {lectures.map(lecture => (
                 <option key={lecture.id} value={lecture.id}>
                   {lecture.title} ({lecture.subject} - {lecture.stage})
@@ -570,7 +570,7 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ currentUser
           <button 
             className="btn-primary w-full"
             onClick={createAttendanceSession}
-            disabled={isLoading || !selectedLecture}
+            disabled={isLoading}
           >
             {isLoading ? (
               <span className="loading-spinner"></span>

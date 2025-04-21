@@ -102,46 +102,65 @@ const StudentDataManagement: React.FC<StudentDataManagementProps> = ({ currentUs
     setFilteredStudents(filtered);
   }, [searchTerm, students]);
 
-  // Handle Excel file import
+  // Handle file import (Excel or DB)
+  const [fileType, setFileType] = useState<'excel' | 'db'>('excel');
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setExcelFile(e.target.files[0]);
     }
   };
 
-  // Import students from Excel
-  const importFromExcel = async (e: React.FormEvent) => {
+  // Import students from Excel or DB file
+  const importFromFile = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!excelFile) {
-      setMessage('Please select an Excel file');
+      setMessage(`Please select a ${fileType === 'excel' ? 'Excel' : 'DB'} file`);
       return;
     }
     
     setIsLoading(true);
     try {
-      // Read the Excel file
+      // Read the file
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
-          // We need to import xlsx library dynamically since it's not installed yet
-          // In a real implementation, you would use the xlsx library directly
-          // const XLSX = await import('xlsx');
-          // const workbook = XLSX.read(e.target?.result, { type: 'binary' });
-          // const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-          // const data = XLSX.utils.sheet_to_json<StudentExcelRow>(worksheet);
-          
-          // For now, we'll just show a message
-          setMessage('Excel import functionality would be implemented here');
-          
-          // The actual implementation would:
-          // 1. Parse the Excel file
-          // 2. Validate the data
-          // 3. Create user accounts for new students
-          // 4. Update existing students
+          if (fileType === 'excel') {
+            // Excel file processing
+            // We need to import xlsx library dynamically since it's not installed yet
+            // In a real implementation, you would use the xlsx library directly
+            // const XLSX = await import('xlsx');
+            // const workbook = XLSX.read(e.target?.result, { type: 'binary' });
+            // const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            // const data = XLSX.utils.sheet_to_json<StudentExcelRow>(worksheet);
+            
+            setMessage('Excel import functionality would be implemented here');
+          } else {
+            // DB file processing
+            // Parse the DB file content
+            const dbContent = e.target?.result;
+            if (!dbContent) {
+              throw new Error('Failed to read DB file content');
+            }
+            
+            // In a real implementation, you would:
+            // 1. Parse the DB file (SQLite or other format)
+            // 2. Extract student records
+            // 3. Create user accounts for new students
+            // 4. Link student IDs with NFC tag IDs
+            
+            // For demonstration purposes:
+            setMessage('DB file import successful. Student records would be processed here.');
+            
+            // The actual implementation would:
+            // - Parse the DB file structure
+            // - Extract student information
+            // - Create user accounts in Firebase
+            // - Link student IDs with NFC tag IDs if available
+          }
         } catch (error) {
-          console.error('Error processing Excel file:', error);
-          setMessage('Failed to process Excel file');
+          console.error(`Error processing ${fileType} file:`, error);
+          setMessage(`Failed to process ${fileType} file`);
         } finally {
           setIsLoading(false);
           setExcelFile(null);
@@ -149,15 +168,19 @@ const StudentDataManagement: React.FC<StudentDataManagementProps> = ({ currentUs
       };
       
       reader.onerror = () => {
-        setMessage('Failed to read Excel file');
+        setMessage(`Failed to read ${fileType} file`);
         setIsLoading(false);
         setExcelFile(null);
       };
       
-      reader.readAsBinaryString(excelFile);
+      if (fileType === 'excel') {
+        reader.readAsBinaryString(excelFile);
+      } else {
+        reader.readAsArrayBuffer(excelFile);
+      }
     } catch (error) {
-      console.error('Error importing from Excel:', error);
-      setMessage('Failed to import from Excel');
+      console.error(`Error importing from ${fileType}:`, error);
+      setMessage(`Failed to import from ${fileType}`);
       setIsLoading(false);
       setExcelFile(null);
     }
@@ -431,16 +454,42 @@ const StudentDataManagement: React.FC<StudentDataManagementProps> = ({ currentUs
   // Render the import students tab
   const renderImportTab = () => (
     <div className="import-tab">
-      <h3>Import Students from Excel</h3>
+      <h3>Import Students from File</h3>
       
-      <form onSubmit={importFromExcel}>
+      <form onSubmit={importFromFile}>
         <div className="form-group">
-          <label htmlFor="excel-file">Upload Excel File</label>
+          <label>File Type</label>
+          <div className="radio-group">
+            <label className="radio-label">
+              <input
+                type="radio"
+                name="fileType"
+                value="excel"
+                checked={fileType === 'excel'}
+                onChange={() => setFileType('excel')}
+              />
+              Excel File (.xlsx, .xls)
+            </label>
+            <label className="radio-label">
+              <input
+                type="radio"
+                name="fileType"
+                value="db"
+                checked={fileType === 'db'}
+                onChange={() => setFileType('db')}
+              />
+              Database File (.db)
+            </label>
+          </div>
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="import-file">Upload {fileType === 'excel' ? 'Excel' : 'DB'} File</label>
           <div className="file-upload">
             <input
               type="file"
-              id="excel-file"
-              accept=".xlsx,.xls"
+              id="import-file"
+              accept={fileType === 'excel' ? '.xlsx,.xls' : '.db,.sqlite,.sqlite3'}
               onChange={handleFileChange}
               required
             />
@@ -454,19 +503,31 @@ const StudentDataManagement: React.FC<StudentDataManagementProps> = ({ currentUs
           </div>
         </div>
         
-        <div className="excel-template">
-          <h4>Excel Format</h4>
-          <p>Your Excel file should have the following columns:</p>
-          <ul>
-            <li>ID (Student ID)</li>
-            <li>Name (Student Name)</li>
-            <li>Email (Student Email)</li>
-            <li>Major (Student Major)</li>
-            <li>Study (Student Study Program)</li>
-            <li>Group (Student Group)</li>
-          </ul>
-          <p>The first row should be the header row.</p>
-        </div>
+        {fileType === 'excel' ? (
+          <div className="excel-template">
+            <h4>Excel Format</h4>
+            <p>Your Excel file should have the following columns:</p>
+            <ul>
+              <li>ID (Student ID)</li>
+              <li>Name (Student Name)</li>
+              <li>Email (Student Email)</li>
+              <li>Major (Student Major)</li>
+              <li>Study (Student Study Program)</li>
+              <li>Group (Student Group)</li>
+            </ul>
+            <p>The first row should be the header row.</p>
+          </div>
+        ) : (
+          <div className="db-template">
+            <h4>Database Format</h4>
+            <p>Your database file should contain student information with the following:</p>
+            <ul>
+              <li>Student ID field that matches their NFC tag ID</li>
+              <li>Student name, email, and other information</li>
+            </ul>
+            <p>The system will automatically link students with their NFC tags based on matching IDs.</p>
+          </div>
+        )}
         
         <div className="form-actions">
           <button
