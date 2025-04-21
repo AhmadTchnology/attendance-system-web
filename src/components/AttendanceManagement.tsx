@@ -3,7 +3,38 @@ import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, doc, ser
 import { db } from '../firebase';
 import { User, Lecture, AttendanceSession, AttendanceRecord } from '../types';
 import NFCScanner from './NFCScanner';
-import { FileText, Users, Clock, Download } from 'lucide-react';
+import { FileText, Users, Clock, Download, CheckSquare, X } from 'lucide-react';
+
+// Helper functions for date/time formatting
+const formatDate = (timestamp: any) => {
+  if (!timestamp) return 'Unknown';
+  
+  try {
+    if (timestamp.toDate) {
+      return timestamp.toDate().toLocaleDateString();
+    } else if (timestamp.seconds) {
+      return new Date(timestamp.seconds * 1000).toLocaleDateString();
+    }
+    return 'Unknown';
+  } catch (error) {
+    return 'Unknown';
+  }
+};
+
+const formatTime = (timestamp: any) => {
+  if (!timestamp) return 'Unknown';
+  
+  try {
+    if (timestamp.toDate) {
+      return timestamp.toDate().toLocaleTimeString();
+    } else if (timestamp.seconds) {
+      return new Date(timestamp.seconds * 1000).toLocaleTimeString();
+    }
+    return 'Unknown';
+  } catch (error) {
+    return 'Unknown';
+  }
+};
 
 interface AttendanceManagementProps {
   currentUser: User;
@@ -482,45 +513,209 @@ const AttendanceManagement: React.FC<AttendanceManagementProps> = ({ currentUser
   }
 
   return (
-    <div className="attendance-container">
+    <div className="attendance-management">
+      <h2 className="section-title">Attendance Management</h2>
+      
+      <div className="attendance-tabs">
+        <div
+          className={`attendance-tab ${activeTab === 'create' ? 'active' : ''}`}
+          onClick={() => setActiveTab('create')}
+        >
+          <Clock size={18} />
+          Create Session
+        </div>
+        <div
+          className={`attendance-tab ${activeTab === 'active' ? 'active' : ''}`}
+          onClick={() => setActiveTab('active')}
+        >
+          <CheckSquare size={18} />
+          Active Sessions
+        </div>
+        <div
+          className={`attendance-tab ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => setActiveTab('history')}
+        >
+          <FileText size={18} />
+          History
+        </div>
+      </div>
+      
       {message && (
-        <div className="message-banner">
+        <div className={`message ${message.includes('success') ? 'success' : 'error'}`}>
           {message}
-          <button onClick={() => setMessage('')}>×</button>
+          <button className="close-btn" onClick={() => setMessage('')}>×</button>
         </div>
       )}
       
-      {currentSession ? (
-        renderAttendanceManagement()
-      ) : (
-        <>
-          <div className="tabs">
-            <button
-              className={`tab ${activeTab === 'create' ? 'active' : ''}`}
-              onClick={() => setActiveTab('create')}
+      {activeTab === 'create' && (
+        <div className="card">
+          <h3 className="card-title">Create New Attendance Session</h3>
+          <div className="form-group">
+            <label htmlFor="lectureSelect">Select Lecture</label>
+            <select
+              id="lectureSelect"
+              value={selectedLecture}
+              onChange={(e) => setSelectedLecture(e.target.value)}
+              className="input-field"
             >
-              Create Session
-            </button>
-            <button
-              className={`tab ${activeTab === 'active' ? 'active' : ''}`}
-              onClick={() => setActiveTab('active')}
-            >
-              Active Sessions
-            </button>
-            <button
-              className={`tab ${activeTab === 'history' ? 'active' : ''}`}
-              onClick={() => setActiveTab('history')}
-            >
-              History
-            </button>
+              <option value="">-- Select a lecture --</option>
+              {lectures.map(lecture => (
+                <option key={lecture.id} value={lecture.id}>
+                  {lecture.title} ({lecture.subject} - {lecture.stage})
+                </option>
+              ))}
+            </select>
           </div>
           
-          <div className="tab-content">
-            {activeTab === 'create' && renderCreateSessionTab()}
-            {activeTab === 'active' && renderActiveSessionsTab()}
-            {activeTab === 'history' && renderAttendanceHistoryTab()}
+          <button 
+            className="btn-primary w-full"
+            onClick={createAttendanceSession}
+            disabled={isLoading || !selectedLecture}
+          >
+            {isLoading ? (
+              <span className="loading-spinner"></span>
+            ) : (
+              <>Start Attendance Session</>
+            )}
+          </button>
+        </div>
+      )}
+      
+      {activeTab === 'active' && (
+        <div className="active-sessions">
+          {activeSessions.length === 0 ? (
+            <div className="empty-state">
+              <Clock size={48} />
+              <p>No active sessions found</p>
+              <button 
+                className="btn-primary"
+                onClick={() => setActiveTab('create')}
+              >
+                Create New Session
+              </button>
+            </div>
+          ) : (
+            <div className="sessions-list">
+              {activeSessions.map(session => {
+                const lecture = lectures.find(l => l.id === session.lectureId);
+                return (
+                  <div key={session.id} className="attendance-session-card">
+                    <div className="session-header">
+                      <div className="session-title">{lecture ? lecture.title : 'Unknown Lecture'}</div>
+                      <div className="session-status status-active">Active</div>
+                    </div>
+                    
+                    <div className="session-details">
+                      {lecture && (
+                        <div className="session-detail">
+                          <FileText size={16} />
+                          <span>{lecture.subject} - {lecture.stage}</span>
+                        </div>
+                      )}
+                      <div className="session-detail">
+                        <Clock size={16} />
+                        <span>Started: {formatDate(session.startTime)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="attendance-stats">
+                      <div className="stat-box">
+                        <div className="stat-value">{session.presentCount}</div>
+                        <div className="stat-label">Present</div>
+                      </div>
+                      <div className="stat-box">
+                        <div className="stat-value">{session.totalStudents - session.presentCount}</div>
+                        <div className="stat-label">Absent</div>
+                      </div>
+                      <div className="stat-box">
+                        <div className="stat-value">
+                          {session.totalStudents > 0 
+                            ? Math.round((session.presentCount / session.totalStudents) * 100) 
+                            : 0}%
+                        </div>
+                        <div className="stat-label">Attendance Rate</div>
+                      </div>
+                    </div>
+                    
+                    <div className="attendance-actions">
+                      <button 
+                        className="btn-primary"
+                        onClick={() => setCurrentSession(session)}
+                      >
+                        Take Attendance
+                      </button>
+                      <button 
+                        className="btn-danger"
+                        onClick={() => endAttendanceSession(session.id)}
+                      >
+                        End Session
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+      
+      {activeTab === 'history' && (
+        <div className="card">
+          <h3 className="card-title">Attendance History</h3>
+          <p className="text-center text-muted">Coming soon...</p>
+        </div>
+      )}
+      
+      {currentSession && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Take Attendance</h3>
+              <button 
+                className="btn-icon"
+                onClick={() => setCurrentSession(null)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <NFCScanner 
+                sessionId={currentSession.id}
+                onScanComplete={handleScanComplete}
+                onError={(error) => setMessage(error)}
+              />
+              
+              <div className="attendance-records">
+                <h4>Attendance Records</h4>
+                
+                {attendanceRecords.length === 0 ? (
+                  <div className="empty-state small">
+                    <p>No records yet. Scan student NFC tags to mark attendance.</p>
+                  </div>
+                ) : (
+                  <div className="records-list">
+                    {attendanceRecords.map(record => {
+                      const student = students.find(s => s.id === record.studentId);
+                      return (
+                        <div key={record.id} className="record-item">
+                          <div className="student-avatar">
+                            {student ? student.name.charAt(0).toUpperCase() : '?'}
+                          </div>
+                          <div className="record-info">
+                            <div className="student-name">{student ? student.name : 'Unknown Student'}</div>
+                            <div className="record-time">{formatTime(record.timestamp)}</div>
+                          </div>
+                          <div className={`record-status status-${record.status}`}>{record.status}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

@@ -2,7 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, getDocs, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { User, NFCTag } from '../types';
-import { Tag, UserPlus, Trash, Upload, Download } from 'lucide-react';
+import { Tag, UserPlus, Trash, Upload, Download, Search, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+
+// Utility function to format dates from Firestore timestamps
+const formatDate = (timestamp: any) => {
+  if (!timestamp) return 'N/A';
+  if (timestamp.toDate) {
+    return timestamp.toDate().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+  return 'Invalid date';
+};
 
 interface NFCTagManagementProps {
   currentUser: User;
@@ -482,40 +497,296 @@ const NFCTagManagement: React.FC<NFCTagManagementProps> = ({ currentUser }) => {
   }
 
   return (
-    <div className="nfc-management-container">
-      {message && (
-        <div className="message-banner">
-          {message}
-          <button onClick={() => setMessage('')}>×</button>
+    <div className="nfc-tag-management">
+      <h2 className="section-title">NFC Tag Management</h2>
+      
+      <div className="attendance-tabs">
+        <div 
+          className={`attendance-tab ${activeTab === 'assign' ? 'active' : ''}`}
+          onClick={() => setActiveTab('assign')}
+        >
+          <Tag size={18} />
+          Assign Tags
+        </div>
+        <div 
+          className={`attendance-tab ${activeTab === 'manage' ? 'active' : ''}`}
+          onClick={() => setActiveTab('manage')}
+        >
+          <RefreshCw size={18} />
+          Manage Tags
+        </div>
+        <div 
+          className={`attendance-tab ${activeTab === 'import' ? 'active' : ''}`}
+          onClick={() => setActiveTab('import')}
+        >
+          <Upload size={18} />
+          Import/Export
+        </div>
+      </div>
+      
+      {activeTab === 'assign' && (
+        <div className="card">
+          <h3 className="card-title">Assign NFC Tag to Student</h3>
+          <form onSubmit={assignNfcTag}>
+            <div className="form-group">
+              <label htmlFor="tagId">NFC Tag ID</label>
+              <div className="input-with-icon">
+                <Tag size={18} className="input-icon" />
+                <input
+                  type="text"
+                  id="tagId"
+                  value={newTagId}
+                  onChange={(e) => setNewTagId(e.target.value)}
+                  required
+                  className="input-field"
+                  placeholder="Enter NFC tag ID"
+                />
+              </div>
+              <p className="form-hint">Scan the NFC tag or enter its ID manually</p>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="studentSelect">Select Student</label>
+              <div className="search-box">
+                <Search size={18} className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search students..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+              
+              <div className="student-list">
+                {filteredStudents.length === 0 ? (
+                  <div className="no-results">
+                    <p>No students found</p>
+                  </div>
+                ) : (
+                  filteredStudents.map(student => (
+                    <div 
+                      key={student.id}
+                      className={`student-item ${selectedStudent === student.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedStudent(student.id)}
+                    >
+                      <div className="student-avatar">
+                        {student.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="student-info">
+                        <p className="student-name">{student.name}</p>
+                        <p className="student-email">{student.email}</p>
+                      </div>
+                      {selectedStudent === student.id && (
+                        <CheckCircle size={18} className="check-icon" />
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            
+            <button 
+              type="submit" 
+              className="btn-primary w-full"
+              disabled={isLoading || !selectedStudent || !newTagId.trim()}
+            >
+              {isLoading ? (
+                <span className="loading-spinner"></span>
+              ) : (
+                <>
+                  <UserPlus size={18} />
+                  Assign Tag
+                </>
+              )}
+            </button>
+          </form>
+          
+          {message && (
+            <div className={`message ${message.includes('success') ? 'success' : 'error'}`}>
+              {message}
+            </div>
+          )}
         </div>
       )}
       
-      <div className="tabs">
-        <button
-          className={`tab ${activeTab === 'assign' ? 'active' : ''}`}
-          onClick={() => setActiveTab('assign')}
-        >
-          <Tag size={18} /> Assign Tag
-        </button>
-        <button
-          className={`tab ${activeTab === 'manage' ? 'active' : ''}`}
-          onClick={() => setActiveTab('manage')}
-        >
-          Manage Tags
-        </button>
-        <button
-          className={`tab ${activeTab === 'import' ? 'active' : ''}`}
-          onClick={() => setActiveTab('import')}
-        >
-          <UserPlus size={18} /> Import/Export
-        </button>
-      </div>
+      {activeTab === 'manage' && (
+        <div className="card">
+          <h3 className="card-title">Manage NFC Tags</h3>
+          
+          {nfcTags.length === 0 ? (
+            <div className="empty-state">
+              <Tag size={48} />
+              <p>No NFC tags assigned yet</p>
+              <button 
+                className="btn-primary"
+                onClick={() => setActiveTab('assign')}
+              >
+                Assign Your First Tag
+              </button>
+            </div>
+          ) : (
+            <div className="tags-list">
+              {nfcTags.map(tag => {
+                const student = students.find(s => s.id === tag.studentId);
+                return (
+                  <div key={tag.id} className={`tag-card ${tag.isActive ? 'active' : 'inactive'}`}>
+                    <div className="tag-header">
+                      <div className="tag-icon">
+                        <Tag size={20} />
+                      </div>
+                      <div className="tag-id">{tag.tagId}</div>
+                      <div className={`tag-status ${tag.isActive ? 'status-active' : 'status-inactive'}`}>
+                        {tag.isActive ? 'Active' : 'Inactive'}
+                      </div>
+                    </div>
+                    
+                    <div className="tag-body">
+                      <div className="tag-student">
+                        <div className="student-avatar">
+                          {student ? student.name.charAt(0).toUpperCase() : '?'}
+                        </div>
+                        <div className="student-info">
+                          <p className="student-name">{student ? student.name : 'Unknown Student'}</p>
+                          <p className="student-email">{student ? student.email : ''}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="tag-meta">
+                        <p className="tag-date">
+                          <span>Assigned:</span> {formatDate(tag.assignedDate)}
+                        </p>
+                        {tag.lastUsed && (
+                          <p className="tag-last-used">
+                            <span>Last used:</span> {formatDate(tag.lastUsed)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="tag-actions">
+                      {tag.isActive ? (
+                        <button 
+                          className="btn-danger"
+                          onClick={() => deactivateTag(tag.id)}
+                          disabled={isLoading}
+                        >
+                          <XCircle size={18} />
+                          Deactivate
+                        </button>
+                      ) : (
+                        <button 
+                          className="btn-success"
+                          onClick={() => activateTag(tag.id)}
+                          disabled={isLoading}
+                        >
+                          <CheckCircle size={18} />
+                          Activate
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
       
-      <div className="tab-content">
-        {activeTab === 'assign' && renderAssignTagTab()}
-        {activeTab === 'manage' && renderManageTagsTab()}
-        {activeTab === 'import' && renderImportTab()}
-      </div>
+      {activeTab === 'import' && (
+        <div className="card">
+          <h3 className="card-title">Import/Export NFC Tags</h3>
+          
+          <div className="import-export-container">
+            <div className="import-section">
+              <div className="section-header">
+                <h4>Import Tags from CSV</h4>
+                <p>Upload a CSV file with tag IDs and student IDs</p>
+              </div>
+              
+              <div className="file-upload-container">
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => setCsvFile(e.target.files ? e.target.files[0] : null)}
+                  id="csv-upload"
+                  className="file-input"
+                />
+                <label htmlFor="csv-upload" className="file-upload-label">
+                  <div className="upload-icon">
+                    <Upload size={24} />
+                  </div>
+                  <div className="upload-text">
+                    <span className="upload-title">Choose CSV File</span>
+                    <span className="upload-subtitle">or drag and drop</span>
+                  </div>
+                </label>
+                
+                {csvFile && (
+                  <div className="selected-file">
+                    <p className="file-name">{csvFile.name}</p>
+                    <button 
+                      className="btn-text"
+                      onClick={() => setCsvFile(null)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              <button 
+                className="btn-primary w-full"
+                onClick={importFromCsv}
+                disabled={isLoading || !csvFile}
+              >
+                {isLoading ? (
+                  <span className="loading-spinner"></span>
+                ) : (
+                  <>
+                    <Upload size={18} />
+                    Import Tags
+                  </>
+                )}
+              </button>
+            </div>
+            
+            <div className="divider"></div>
+            
+            <div className="export-section">
+              <div className="section-header">
+                <h4>Export Tags to CSV</h4>
+                <p>Download all NFC tag assignments as CSV</p>
+              </div>
+              
+              <div className="export-info">
+                <p>This will export a CSV file containing:</p>
+                <ul>
+                  <li>Tag IDs</li>
+                  <li>Student information</li>
+                  <li>Assignment dates</li>
+                  <li>Status information</li>
+                </ul>
+              </div>
+              
+              <button 
+                className="btn-secondary w-full"
+                onClick={exportToCsv}
+                disabled={isLoading || nfcTags.length === 0}
+              >
+                <Download size={18} />
+                Export {nfcTags.length} Tags
+              </button>
+            </div>
+          </div>
+          
+          {message && (
+            <div className={`message ${message.includes('success') ? 'success' : 'error'}`}>
+              {message}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
